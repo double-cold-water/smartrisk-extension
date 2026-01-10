@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.smartrisk.hackathon" extension-version="1.0.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name">SmartRisk Analytics</name>
+    <description>AI-powered portfolio risk management for personal investors</description>
+    <author name="Your Name" email="your@email.com" organization="Hackathon 2025"/>
+    <min-api-version>1.4</min-api-version>
+    <source-location>
+      <!-- 请将下面的网址替换成你的实际网址 -->
+      <url>https://你的GitHub用户名.github.io/你的仓库名/smartrisk-extension.html</url>
+    </source-location>
+    <permissions>
+      <permission>full data</permission>
+    </permissions>
+  </dashboard-extension>
+</manifest>
