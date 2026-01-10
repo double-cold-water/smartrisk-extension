@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>SmartRisk AI Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/tableau-extensions-api@1.10.0/tableau.extensions.1.latest.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { margin-bottom: 20px; font-size: 24px; }
+        .metrics-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 20px;
+        }
+        .metric-card { 
+            background: rgba(255, 255, 255, 0.2); 
+            padding: 20px; 
+            border-radius: 10px; 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .metric-label { font-size: 14px; opacity: 0.9; margin-bottom: 5px; }
+        .metric-value { font-size: 32px; font-weight: bold; }
+        .alert { 
+            background: rgba(255, 59, 48, 0.3); 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin-top: 15px;
+            border-left: 4px solid #ff3b30;
+        }
+        .recommendation {
+            background: rgba(52, 199, 89, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #34c759;
+        }
+        .loading { text-align: center; padding: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 AI-Powered Risk Analysis</h1>
+        <div id="content">
+            <div class="loading">Analyzing your portfolio...</div>
+        </div>
+    </div>
+    
+    <script>
+        tableau.extensions.initializeAsync().then(function() {
+            analyzePortfolio();
+        });
+
+        async function analyzePortfolio() {
+            const dashboard = tableau.extensions.dashboardContent.dashboard;
+            const worksheet = dashboard.worksheets[0]; // Get first worksheet
+            
+            const dataTable = await worksheet.getSummaryDataAsync();
+            
+            // Calculate metrics
+            let totalValue = 0;
+            let totalRisk = 0;
+            let maxRisk = 0;
+            let count = 0;
+            
+            dataTable.data.forEach(row => {
+                const value = row[5].value; // Total_Value column
+                const risk = row[6].value;   // Risk_Score column
+                
+                totalValue += value;
+                totalRisk += risk;
+                maxRisk = Math.max(maxRisk, risk);
+                count++;
+            });
+            
+            const avgRisk = totalRisk / count;
+            const riskLevel = avgRisk > 0.6 ? 'HIGH' : avgRisk > 0.4 ? 'MEDIUM' : 'LOW';
+            
+            // Display results
+            document.getElementById('content').innerHTML = `
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Total Portfolio Value</div>
+                        <div class="metric-value">$${(totalValue / 1000).toFixed(0)}K</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Average Risk Score</div>
+                        <div class="metric-value">${avgRisk.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Risk Level</div>
+                        <div class="metric-value">${riskLevel}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Max Risk Exposure</div>
+                        <div class="metric-value">${maxRisk.toFixed(2)}</div>
+                    </div>
+                </div>
+                
+                ${avgRisk > 0.6 ? `
+                    <div class="alert">
+                        <strong>⚠️ High Risk Alert</strong><br>
+                        Your portfolio has an elevated risk score. Consider rebalancing towards fixed-income assets.
+                    </div>
+                ` : ''}
+                
+                <div class="recommendation">
+                    <strong>💡 AI Recommendation</strong><br>
+                    Based on current market conditions, consider ${avgRisk > 0.5 ? 'reducing equity exposure by 10-15%' : 'maintaining current allocation'}.
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
