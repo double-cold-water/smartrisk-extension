@@ -3,13 +3,13 @@
   <dashboard-extension id="com.smartrisk.hackathon" extension-version="1.0.0">
     <default-locale>en_US</default-locale>
     <name resource-id="name">SmartRisk Analytics</name>
-    <description>AI-powered portfolio risk management for personal investors</description>
-    <author name="Your Name" email="your@email.com" organization="Hackathon 2025"/>
+    <description>AI-powered portfolio risk management</description>
+    <author name="Your Name" email="your@email.com" organization="Hackathon" website="https://github.com"/>
     <min-api-version>1.4</min-api-version>
     <source-location>
-      <!-- 请将下面的网址替换成你的实际网址 -->
       <url>https://double-cold-water.github.io/smartrisk-extension/smartrisk-extension.html</url>
     </source-location>
+    <icon>iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==</icon>
     <permissions>
       <permission>full data</permission>
     </permissions>
