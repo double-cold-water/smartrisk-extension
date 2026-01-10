@@ -1,47 +1,227 @@
-   <!DOCTYPE html>
-   <html>
-   <head>
-      <meta charset="utf-8">
-       <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline';">
-       <title>SmartRisk Extension</title>
-       <script src="https://cdn.jsdelivr.net/npm/tableau-extensions-api@1.10.0/tableau.extensions.1.latest.min.js"></script>
-       <style>
-           body {
-               font-family: Arial, sans-serif;
-               padding: 20px;
-               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-               color: white;
-           }
-           .container { max-width: 800px; margin: 0 auto; }
-           h1 { margin-bottom: 20px; }
-           .metric-card {
-               background: rgba(255, 255, 255, 0.2);
-               padding: 20px;
-               border-radius: 10px;
-               margin: 10px 0;
-           }
-           .metric-value { font-size: 32px; font-weight: bold; }
-       </style>
-   </head>
-   <body>
-       <div class="container">
-           <h1>🎯 Portfolio Risk Analysis</h1>
-           <div id="content">Loading...</div>
-       </div>
-       
-       <script>
-           tableau.extensions.initializeAsync().then(function() {
-               const dashboard = tableau.extensions.dashboardContent.dashboard;
-               document.getElementById('content').innerHTML = `
-                   <div class="metric-card">
-                       <div>Dashboard: ${dashboard.name}</div>
-                       <div class="metric-value">✓ Connected</div>
-                   </div>
-               `;
-           }).catch(function(err) {
-               document.getElementById('content').innerHTML = 
-                   '<div class="metric-card">Error: ' + err + '</div>';
-           });
-       </script>
-   </body>
-   </html>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>SmartRisk Extension</title>
+    <script src="https://cdn.jsdelivr.net/npm/tableau-extensions-api@1.10.0/tableau.extensions.1.latest.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { 
+            margin-bottom: 20px; 
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+        }
+        .metric-label {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            line-height: 1;
+        }
+        .alert, .recommendation {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-top: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .alert {
+            background: rgba(255, 59, 48, 0.3);
+            border-left: 4px solid #ff3b30;
+        }
+        .recommendation {
+            background: rgba(52, 199, 89, 0.3);
+            border-left: 4px solid #34c759;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+        }
+        .error {
+            background: rgba(255, 59, 48, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Portfolio Risk Analysis</h1>
+        <div id="content">
+            <div class="loading">Analyzing your portfolio...</div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Extension starting...');
+
+        tableau.extensions.initializeAsync().then(function() {
+            console.log('Tableau initialized successfully');
+            analyzePortfolio();
+        }).catch(function(err) {
+            console.error('Initialization error:', err);
+            showError('Failed to initialize: ' + err.message);
+        });
+
+        async function analyzePortfolio() {
+            try {
+                const dashboard = tableau.extensions.dashboardContent.dashboard;
+                console.log('Dashboard name:', dashboard.name);
+                console.log('Worksheets:', dashboard.worksheets.map(w => w.name));
+
+                // 尝试获取第一个工作表的数据
+                const worksheet = dashboard.worksheets[0];
+                console.log('Using worksheet:', worksheet.name);
+
+                const dataTable = await worksheet.getSummaryDataAsync();
+                console.log('Data rows:', dataTable.data.length);
+                console.log('Columns:', dataTable.columns.map(c => c.fieldName));
+
+                // 计算风险指标
+                let totalValue = 0;
+                let riskSum = 0;
+                let assetCount = 0;
+
+                // 查找列索引
+                const columns = dataTable.columns;
+                let valueIndex = -1;
+                let riskIndex = -1;
+
+                // 查找 Total_Value 和 Risk_Score 列
+                columns.forEach((col, index) => {
+                    const fieldName = col.fieldName.toLowerCase();
+                    if (fieldName.includes('value') || fieldName.includes('total')) {
+                        valueIndex = index;
+                    }
+                    if (fieldName.includes('risk')) {
+                        riskIndex = index;
+                    }
+                });
+
+                console.log('Value column index:', valueIndex);
+                console.log('Risk column index:', riskIndex);
+
+                // 计算总值和平均风险
+                dataTable.data.forEach(row => {
+                    if (valueIndex >= 0 && row[valueIndex].value) {
+                        totalValue += parseFloat(row[valueIndex].value) || 0;
+                    }
+                    if (riskIndex >= 0 && row[riskIndex].value) {
+                        riskSum += parseFloat(row[riskIndex].value) || 0;
+                        assetCount++;
+                    }
+                });
+
+                const avgRisk = assetCount > 0 ? riskSum / assetCount : 0;
+                const riskLevel = avgRisk > 0.6 ? 'HIGH' : avgRisk > 0.4 ? 'MEDIUM' : 'LOW';
+                const riskColor = avgRisk > 0.6 ? '#ff3b30' : avgRisk > 0.4 ? '#ff9500' : '#34c759';
+
+                console.log('Total Value:', totalValue);
+                console.log('Average Risk:', avgRisk);
+
+                // 显示结果
+                const content = `
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-label">Total Portfolio</div>
+                            <div class="metric-value">$${formatNumber(totalValue)}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Avg Risk Score</div>
+                            <div class="metric-value" style="color: ${riskColor}">${avgRisk.toFixed(2)}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Risk Level</div>
+                            <div class="metric-value">${riskLevel}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-label">Assets</div>
+                            <div class="metric-value">${assetCount}</div>
+                        </div>
+                    </div>
+
+                    ${avgRisk > 0.6 ? `
+                        <div class="alert">
+                            <strong>⚠️ High Risk Alert</strong><br>
+                            Your portfolio has an elevated risk score of ${avgRisk.toFixed(2)}. 
+                            Consider rebalancing towards lower-risk assets like bonds or treasury securities.
+                        </div>
+                    ` : ''}
+
+                    <div class="recommendation">
+                        <strong>💡 AI Recommendation</strong><br>
+                        ${getRecommendation(avgRisk, totalValue)}
+                    </div>
+                `;
+
+                document.getElementById('content').innerHTML = content;
+
+            } catch (error) {
+                console.error('Analysis error:', error);
+                showError('Error analyzing portfolio: ' + error.message);
+            }
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(0) + 'K';
+            }
+            return num.toFixed(0);
+        }
+
+        function getRecommendation(avgRisk, totalValue) {
+            if (avgRisk > 0.6) {
+                return 'Consider reducing equity exposure by 10-15% and increasing fixed-income allocation.';
+            } else if (avgRisk > 0.4) {
+                return 'Your portfolio has moderate risk. Current allocation appears balanced for medium-term goals.';
+            } else {
+                return 'Low risk portfolio detected. Consider adding growth assets if you have a longer time horizon.';
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('content').innerHTML = `
+                <div class="error">
+                    <strong>Error</strong><br>
+                    ${message}
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
