@@ -99,3 +99,80 @@
                                 obj[dataTable.columns[i].fieldName] = cell.value;
                             });
                             return obj;
+                        });
+
+                        lastSection.innerHTML = `
+                            <h2>Data Retrieved <span class="status success">SUCCESS</span></h2>
+                            <p><strong>Total Rows:</strong> ${dataTable.data.length}</p>
+                            <p><strong>Columns:</strong></p>
+                            <pre>${JSON.stringify(columns, null, 2)}</pre>
+                            <p><strong>Sample Data:</strong></p>
+                            <pre>${JSON.stringify(sampleRows, null, 2)}</pre>
+                        `;
+
+                        analyzePortfolioData(dataTable);
+
+                    }).catch(function(err) {
+                        addSection('Data Error', 'error', `<p>❌ ${err.message}</p>`);
+                    });
+
+                }).catch(function(err) {
+                    addSection('Initialization Error', 'error', `<p>❌ ${err.message}</p>`);
+                });
+                
+            } else {
+                addSection('Tableau API', 'error', '<p>❌ Tableau API not loaded</p>');
+            }
+        }, 1000);
+
+        function analyzePortfolioData(dataTable) {
+            try {
+                const columns = dataTable.columns;
+                const valueCol = columns.find(c => c.fieldName.toLowerCase().includes('value'));
+                const riskCol = columns.find(c => c.fieldName.toLowerCase().includes('risk'));
+
+                if (!valueCol || !riskCol) {
+                    addSection('Analysis', 'error', `<p>⚠️ Cannot find value/risk columns</p>`);
+                    return;
+                }
+
+                let totalValue = 0, riskSum = 0, count = 0;
+                const valueIndex = columns.indexOf(valueCol);
+                const riskIndex = columns.indexOf(riskCol);
+
+                dataTable.data.forEach(row => {
+                    totalValue += parseFloat(row[valueIndex].value) || 0;
+                    riskSum += parseFloat(row[riskIndex].value) || 0;
+                    count++;
+                });
+
+                const avgRisk = riskSum / count;
+                const riskLevel = avgRisk > 0.6 ? 'HIGH' : avgRisk > 0.4 ? 'MEDIUM' : 'LOW';
+
+                addSection('Portfolio Analysis', 'success', `
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px;">Total Value</div>
+                            <div style="font-size: 28px; font-weight: bold;">$${(totalValue/1000).toFixed(0)}K</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px;">Avg Risk</div>
+                            <div style="font-size: 28px; font-weight: bold;">${avgRisk.toFixed(2)}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px;">Risk Level</div>
+                            <div style="font-size: 28px; font-weight: bold;">${riskLevel}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px;">Assets</div>
+                            <div style="font-size: 28px; font-weight: bold;">${count}</div>
+                        </div>
+                    </div>
+                `);
+            } catch (err) {
+                addSection('Analysis Error', 'error', `<p>❌ ${err.message}</p>`);
+            }
+        }
+    </script>
+</body>
+</html>
