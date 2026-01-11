@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartRisk Portfolio Analysis</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { 
+            font-size: 28px; 
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .metric {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .metric-label {
+            font-size: 13px;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        .metric-value {
+            font-size: 36px;
+            font-weight: bold;
+            line-height: 1.2;
+        }
+        .alert {
+            background: rgba(255, 59, 48, 0.3);
+            border-left: 4px solid #ff3b30;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .success {
+            background: rgba(52, 199, 89, 0.3);
+            border-left: 4px solid #34c759;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 SmartRisk Portfolio Analysis</h1>
+        <div id="app">
+            <div class="status-card">
+                <p>⏳ Connecting to Tableau...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Tableau Extensions API from official source -->
+    <script type="text/javascript" src="https://online.tableau.com/javascripts/api/tableau.extensions.1.latest.js"></script>
+    
+    <script type="text/javascript">
+        // Wait for DOM and API to be ready
+        (function() {
+            'use strict';
+            
+            const app = document.getElementById('app');
+            let checkCount = 0;
+            const maxChecks = 10;
+            
+            function checkTableauAPI() {
+                checkCount++;
+                
+                if (typeof tableau !== 'undefined' && tableau.extensions) {
+                    app.innerHTML = '<div class="status-card"><p>✅ API Connected. Initializing...</p></div>';
+                    initializeExtension();
+                } else if (checkCount < maxChecks) {
+                    setTimeout(checkTableauAPI, 500);
+                } else {
+                    app.innerHTML = `
+                        <div class="status-card">
+                            <h3 style="color: #ff3b30; margin-bottom: 10px;">⚠️ Unable to Connect</h3>
+                            <p>The Tableau Extensions API could not be loaded.</p>
+                            <p style="margin-top: 10px; font-size: 14px; opacity: 0.8;">
+                                This extension must be loaded within a Tableau Dashboard.
+                            </p>
+                        </div>
+                    `;
+                }
+            }
+            
+            function initializeExtension() {
+                tableau.extensions.initializeAsync().then(function() {
+                    loadDashboardData();
+                }).catch(function(error) {
+                    showError('Initialization failed: ' + error.message);
+                });
+            }
+            
+            function loadDashboardData() {
+                try {
+                    const dashboard = tableau.extensions.dashboardContent.dashboard;
+                    
+                    if (!dashboard.worksheets || dashboard.worksheets.length === 0) {
+                        showError('No worksheets found in dashboard');
+                        return;
+                    }
+                    
+                    const worksheet = dashboard.worksheets[0];
+                    
+                    worksheet.getSummaryDataAsync().then(function(dataTable) {
+                        processData(dataTable);
+                    }).catch(function(error) {
+                        showError('Data loading failed: ' + error.message);
+                    });
+                    
+                } catch (error) {
+                    showError('Error accessing dashboard: ' + error.message);
+                }
+            }
+            
+            function processData(dataTable) {
+                try {
+                    const columns = dataTable.columns;
+                    const rows = dataTable.data;
+                    
+                    // Find value and risk columns
+                    let valueColIndex = -1;
+                    let riskColIndex = -1;
+                    
+                    columns.forEach(function(col, index) {
+                        const fieldName = col.fieldName.toLowerCase();
+                        if (fieldName.includes('value') || fieldName.includes('total')) {
+                            valueColIndex = index;
+                        }
+                        if (fieldName.includes('risk')) {
+                            riskColIndex = index;
+                        }
+                    });
+                    
+                    if (valueColIndex === -1 || riskColIndex === -1) {
+                        showError('Required columns not found. Looking for columns containing "value" and "risk".');
+                        return;
+                    }
+                    
+                    // Calculate metrics
+                    let totalValue = 0;
+                    let riskSum = 0;
+                    let assetCount = 0;
+                    
+                    rows.forEach(function(row) {
+                        const value = parseFloat(row[valueColIndex].value) || 0;
+                        const risk = parseFloat(row[riskColIndex].value) || 0;
+                        
+                        totalValue += value;
+                        riskSum += risk;
+                        assetCount++;
+                    });
+                    
+                    const avgRisk = assetCount > 0 ? riskSum / assetCount : 0;
+                    const riskLevel = avgRisk > 0.6 ? 'HIGH' : avgRisk > 0.4 ? 'MEDIUM' : 'LOW';
+                    const riskColor = avgRisk > 0.6 ? '#ff3b30' : avgRisk > 0.4 ? '#ff9500' : '#34c759';
+                    
+                    displayResults(totalValue, avgRisk, riskLevel, riskColor, assetCount);
+                    
+                } catch (error) {
+                    showError('Data processing error: ' + error.message);
+                }
+            }
+            
+            function displayResults(totalValue, avgRisk, riskLevel, riskColor, assetCount) {
+                const formattedValue = totalValue >= 1000000 
+                    ? '$' + (totalValue / 1000000).toFixed(1) + 'M'
+                    : '$' + (totalValue / 1000).toFixed(0) + 'K';
+                
+                let html = '<div class="metrics-grid">';
+                html += '<div class="metric"><div class="metric-label">Total Value</div><div class="metric-value">' + formattedValue + '</div></div>';
+                html += '<div class="metric"><div class="metric-label">Avg Risk Score</div><div class="metric-value" style="color: ' + riskColor + '">' + avgRisk.toFixed(2) + '</div></div>';
+                html += '<div class="metric"><div class="metric-label">Risk Level</div><div class="metric-value">' + riskLevel + '</div></div>';
+                html += '<div class="metric"><div class="metric-label">Assets</div><div class="metric-value">' + assetCount + '</div></div>';
+                html += '</div>';
+                
+                if (avgRisk > 0.6) {
+                    html += '<div class="alert"><strong>⚠️ High Risk Alert</strong><br>Your portfolio risk score (' + avgRisk.toFixed(2) + ') exceeds the recommended threshold. Consider rebalancing toward lower-risk assets like bonds or treasury securities.</div>';
+                } else {
+                    html += '<div class="success"><strong>✅ Portfolio Health Good</strong><br>Your risk level (' + avgRisk.toFixed(2) + ') is within acceptable range. Continue monitoring market conditions.</div>';
+                }
+                
+                app.innerHTML = html;
+            }
+            
+            function showError(message) {
+                app.innerHTML = '<div class="status-card"><h3 style="color: #ff3b30;">❌ Error</h3><p>' + message + '</p></div>';
+            }
+            
+            // Start checking for Tableau API after page load
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    setTimeout(checkTableauAPI, 500);
+                });
+            } else {
+                setTimeout(checkTableauAPI, 500);
+            }
+            
+        })();
+    </script>
+</body>
+</html>
