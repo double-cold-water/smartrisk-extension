@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>SmartRisk Debug</title>
+    <script src="https://cdn.jsdelivr.net/npm/tableau-extensions-api@1.10.0/tableau.extensions.1.latest.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+        }
+        .section {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        h2 { margin-top: 0; font-size: 18px; }
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .status { 
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .success { background: #34c759; }
+        .error { background: #ff3b30; }
+        .info { background: #007aff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 SmartRisk Debug Panel</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function addSection(title, status, content) {
+            const section = document.createElement('div');
+            section.className = 'section';
+            section.innerHTML = `
+                <h2>${title} <span class="status ${status}">${status.toUpperCase()}</span></h2>
+                ${content}
+            `;
+            output.appendChild(section);
+        }
+
+        // Step 1: Check if Tableau API is loaded
+        if (typeof tableau !== 'undefined') {
+            addSection('Tableau API', 'success', '<p>✅ Tableau Extensions API loaded successfully</p>');
+        } else {
+            addSection('Tableau API', 'error', '<p>❌ Tableau API not found</p>');
+        }
+
+        // Step 2: Initialize
+        addSection('Initialization', 'info', '<p>⏳ Attempting to initialize...</p>');
+
+        tableau.extensions.initializeAsync().then(function() {
+            // Update initialization status
+            const sections = output.querySelectorAll('.section');
+            sections[1].innerHTML = `
+                <h2>Initialization <span class="status success">SUCCESS</span></h2>
+                <p>✅ Extension initialized successfully</p>
+            `;
+
+            // Step 3: Get Dashboard Info
+            const dashboard = tableau.extensions.dashboardContent.dashboard;
+            addSection('Dashboard Info', 'success', `
+                <p><strong>Name:</strong> ${dashboard.name}</p>
+                <p><strong>Worksheets:</strong> ${dashboard.worksheets.length}</p>
+                <pre>${JSON.stringify(dashboard.worksheets.map(w => w.name), null, 2)}</pre>
+            `);
+
+            // Step 4: Get Data from first worksheet
+            const worksheet = dashboard.worksheets[0];
+            addSection('Getting Data', 'info', `<p>⏳ Loading data from "${worksheet.name}"...</p>`);
+
+            worksheet.getSummaryDataAsync().then(function(dataTable) {
+                // Update data section
+                const sections = output.querySelectorAll('.section');
+                const lastSection = sections[sections.length - 1];
+                
+                const columns = dataTable.columns.map(c => ({
+                    name: c.fieldName,
+                    type: c.dataType
+                }));
+
+                const sampleRows = dataTable.data.slice(0, 3).map(row => {
+                    const obj = {};
+                    row.forEach((cell, i) => {
+                        obj[dataTable.columns[i].fieldName] = cell.value;
+                    });
+                    return obj;
+                });
+
+                lastSection.innerHTML = `
+                    <h2>Data Retrieved <span class="status success">SUCCESS</span></h2>
+                    <p><strong>Total Rows:</strong> ${dataTable.data.length}</p>
+                    <p><strong>Columns (${columns.length}):</strong></p>
+                    <pre>${JSON.stringify(columns, null, 2)}</pre>
+                    <p><strong>Sample Data (first 3 rows):</strong></p>
+                    <pre>${JSON.stringify(sampleRows, null, 2)}</pre>
+                `;
+
+                // Step 5: Analyze the data
+                analyzePortfolioData(dataTable);
+
+            }).catch(function(err) {
+                addSection('Data Error', 'error', `<p>❌ ${err.message}</p><pre>${err.stack}</pre>`);
+            });
+
+        }).catch(function(err) {
+            addSection('Initialization Error', 'error', `<p>❌ ${err.message}</p><pre>${err.stack}</pre>`);
+        });
+
+        function analyzePortfolioData(dataTable) {
+            try {
+                const columns = dataTable.columns;
+                let totalValue = 0;
+                let riskSum = 0;
+                let count = 0;
+
+                // Find the right columns
+                const valueCol = columns.find(c => 
+                    c.fieldName.toLowerCase().includes('value') || 
+                    c.fieldName.toLowerCase().includes('total')
+                );
+                const riskCol = columns.find(c => 
+                    c.fieldName.toLowerCase().includes('risk')
+                );
+
+                if (!valueCol || !riskCol) {
+                    addSection('Analysis Warning', 'error', `
+                        <p>⚠️ Could not find expected columns</p>
+                        <p>Looking for columns containing "value" or "risk"</p>
+                        <p>Available: ${columns.map(c => c.fieldName).join(', ')}</p>
+                    `);
+                    return;
+                }
+
+                const valueIndex = columns.indexOf(valueCol);
+                const riskIndex = columns.indexOf(riskCol);
+
+                dataTable.data.forEach(row => {
+                    const val = parseFloat(row[valueIndex].value) || 0;
+                    const risk = parseFloat(row[riskIndex].value) || 0;
+                    totalValue += val;
+                    riskSum += risk;
+                    count++;
+                });
+
+                const avgRisk = riskSum / count;
+                const riskLevel = avgRisk > 0.6 ? 'HIGH' : avgRisk > 0.4 ? 'MEDIUM' : 'LOW';
+
+                addSection('Portfolio Analysis', 'success', `
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px; opacity: 0.8;">Total Value</div>
+                            <div style="font-size: 28px; font-weight: bold;">$${(totalValue/1000).toFixed(0)}K</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px; opacity: 0.8;">Avg Risk Score</div>
+                            <div style="font-size: 28px; font-weight: bold;">${avgRisk.toFixed(2)}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px; opacity: 0.8;">Risk Level</div>
+                            <div style="font-size: 28px; font-weight: bold;">${riskLevel}</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 15px; border-radius: 8px;">
+                            <div style="font-size: 12px; opacity: 0.8;">Assets</div>
+                            <div style="font-size: 28px; font-weight: bold;">${count}</div>
+                        </div>
+                    </div>
+                    ${avgRisk > 0.6 ? `
+                        <div style="background: rgba(255,59,48,0.3); padding: 15px; border-radius: 8px; margin-top: 15px;">
+                            <strong>⚠️ High Risk Alert</strong><br>
+                            Portfolio risk score of ${avgRisk.toFixed(2)} exceeds recommended threshold. 
+                            Consider rebalancing toward lower-risk assets.
+                        </div>
+                    ` : ''}
+                `);
+
+            } catch (err) {
+                addSection('Analysis Error', 'error', `<p>❌ ${err.message}</p><pre>${err.stack}</pre>`);
+            }
+        }
+    </script>
+</body>
+</html>
